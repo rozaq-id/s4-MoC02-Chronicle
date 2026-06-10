@@ -17,7 +17,7 @@ class AppPillButton extends StatelessWidget {
 
   final String label;
   final Widget? icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final AppPillButtonVariant variant;
   final bool iconOnRight;
 
@@ -50,13 +50,19 @@ class AppPillButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (!iconOnRight) ...[
-                    if (icon is Icon) icon! else SizedBox(height: 20, width: 20, child: icon!),
+                    if (icon is Icon)
+                      icon!
+                    else
+                      SizedBox(height: 20, width: 20, child: icon!),
                     const SizedBox(width: 8),
                   ],
                   Text(label),
                   if (iconOnRight) ...[
                     const SizedBox(width: 8),
-                    if (icon is Icon) icon! else SizedBox(height: 20, width: 20, child: icon!),
+                    if (icon is Icon)
+                      icon!
+                    else
+                      SizedBox(height: 20, width: 20, child: icon!),
                   ],
                 ],
               ),

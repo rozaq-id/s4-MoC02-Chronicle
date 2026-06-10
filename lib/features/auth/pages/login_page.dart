@@ -17,12 +17,48 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  // Dummy credentials
+  static const String _dummyEmail = 'user@mail.com';
+  static const String _dummyPassword = 'password';
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _handleLogin() {
+    // Clear previous error
+    setState(() => _errorMessage = null);
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Basic validation
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Please fill in all fields.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    // Simulate network delay
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+
+      if (email == _dummyEmail && password == _dummyPassword) {
+        context.go('/home');
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Invalid email or password. Please try again.';
+        });
+      }
+    });
   }
 
   static const String _googleSvg = '''
@@ -142,14 +178,54 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 16),
 
+                        // Error Message
+                        if (_errorMessage != null)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              border: Border.all(
+                                color: Colors.red.withValues(alpha: 0.3),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red.shade400,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: AppTextStyles.ui().copyWith(
+                                      fontSize: 13,
+                                      color: Colors.red.shade400,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
                         // Sign In Button
                         AppPillButton(
-                          label: 'Sign In',
-                          icon: const Icon(Icons.login, size: 18, weight: 700),
+                          label: _isLoading ? 'Signing In...' : 'Sign In',
+                          icon: _isLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.surfaceDark,
+                                  ),
+                                )
+                              : const Icon(Icons.login, size: 18, weight: 700),
                           iconOnRight: true,
-                          onPressed: () {
-                            context.go('/home');
-                          },
+                          onPressed: _isLoading ? null : _handleLogin,
                         ),
                         const SizedBox(height: 24),
 

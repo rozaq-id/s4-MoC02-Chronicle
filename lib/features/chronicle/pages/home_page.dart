@@ -17,9 +17,15 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final WikipediaService _wikiService = WikipediaService();
+  final ScrollController _scrollController = ScrollController();
   ChronicleCategory _selectedCategory = ChronicleCategory.events;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   String _errorMessage = '';
+
+  static const int _pageSize = 10;
+  int _currentPage = 1;
+  bool _hasMore = true;
 
   List<Article> _featured = [];
   List<Article> _events = [];
@@ -30,6 +36,20 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadData();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -54,6 +74,8 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
+      _currentPage = 1;
+      _hasMore = true;
     });
 
     try {
@@ -72,6 +94,26 @@ class _HomePageState extends State<HomePage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore || _isLoading) return;
+
+    final allArticles = _filteredArticles;
+    final totalPages = (allArticles.length / _pageSize).ceil();
+    if (_currentPage >= totalPages) {
+      setState(() => _hasMore = false);
+      return;
+    }
+
+    setState(() => _isLoadingMore = true);
+    // Simulate loading delay for pagination feel
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+    setState(() {
+      _currentPage++;
+      _isLoadingMore = false;
+    });
   }
 
   List<Article> get _filteredFeatured {
@@ -96,12 +138,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  List<Article> get _visibleArticles {
+    final all = _filteredArticles;
+    final count = _currentPage * _pageSize;
+    return all.take(count).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: CustomScrollView(
+          controller: _scrollController,
           slivers: [
             // Top App Bar
             SliverToBoxAdapter(
@@ -184,7 +233,13 @@ class _HomePageState extends State<HomePage> {
                   scrollDirection: Axis.horizontal,
                   child: CategoryTabs(
                     selected: _selectedCategory,
-                    onChanged: (cat) => setState(() => _selectedCategory = cat),
+                    onChanged: (cat) {
+                      setState(() {
+                        _selectedCategory = cat;
+                        _currentPage = 1;
+                        _hasMore = true;
+                      });
+                    },
                   ),
                 ),
               ),
@@ -229,18 +284,35 @@ class _HomePageState extends State<HomePage> {
                 ),
 
               // Article list
-              if (_filteredArticles.isNotEmpty)
+              if (_visibleArticles.isNotEmpty)
                 SliverList.separated(
-                  itemCount: _filteredArticles.length,
+                  itemCount: _visibleArticles.length + (_hasMore ? 1 : 0),
                   separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, i) {
-                    final article = _filteredArticles[i];
+                    // Show loading indicator at the bottom
+                    if (i == _visibleArticles.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: AppColors.goldDeep,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final article = _visibleArticles[i];
                     return Padding(
                       padding: EdgeInsets.fromLTRB(
                         16,
                         0,
                         16,
-                        i == _filteredArticles.length - 1 ? 24 : 0,
+                        i == _visibleArticles.length - 1 && !_hasMore ? 24 : 0,
                       ),
                       child: ArticleCard(
                         article: article,
@@ -251,7 +323,9 @@ class _HomePageState extends State<HomePage> {
                 ),
 
               // Empty state placeholder for other categories
-              if (_filteredFeatured.isEmpty && _filteredArticles.isEmpty)
+              if (_filteredFeatured.isEmpty &&
+                  _visibleArticles.isEmpty &&
+                  !_hasMore)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 64),
